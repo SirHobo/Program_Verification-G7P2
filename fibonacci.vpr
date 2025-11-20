@@ -13,12 +13,69 @@
 // to *fields*, but this does not apply to *predicates*
 predicate time_credit() // represents one abstract unit of time
 
+predicate time_credits(k: Int)
+{
+  k <= 0 ? true : time_credit() && time_credits(k - 1)
+}
+
 // models spending an abstract unit of time 
 // needs to be called at the beginning of every method
 // and loop iteration
 method consume_time_credit() // 
     requires acc(time_credit(), 1/1)
 // -----------------------------------------
+
+// function that computes fib(n) by definition.
+function fib(n: Int) : Int 
+requires n >= 0
+{
+    n == 0 ?
+        0 :
+        (
+            n == 1 ?
+                1 :
+                fib(n-1) + fib(n-2)
+        )
+}
+
+
+// function that computes the time it takes to compute fib(n) in the method
+// by practically cheating
+function fibTime(n: Int): Int
+  requires n >= 0
+  ensures result > 0
+{
+  n < 2
+    ? 1          // 1 credit for base cases
+    : 1 + fibTime(n - 1) + fibTime(n - 2)
+}
+
+
+// lemma to split n time credits into n = a + b time credits.
+method split_time_credits(a: Int, b: Int)
+  requires a >= 0 && b >= 0
+  requires time_credits(a + b)
+  ensures  time_credits(a) && time_credits(b)
+  decreases a + b
+{
+  if (a == 0) {
+    // time_credits(0) is just 'true', and we already have time_credits(b)
+    // Nothing to do.
+    fold time_credits(0)
+  } else {
+    // a > 0
+    unfold time_credits(a + b)
+    // now we have time_credit() && time_credits(a + b - 1)
+
+    split_time_credits(a - 1, b)
+    // IH: time_credits(a-1) && time_credits(b)
+
+    // Use the fresh time_credit() and time_credits(a-1) to rebuild time_credits(a)
+    fold time_credits(a)
+    // We keep time_credits(b) as part of the frame
+  }
+}
+
 
 
 // -----------------------------------------
@@ -29,24 +86,45 @@ method consume_time_credit() //
 // Do not modify the given production code. However, feel free to 
 // introduce additional functions, lemma methods or ghost code.
 // Furthermore, make sure that the functional contract remains intact.
-method fib_recursive(n: Int) returns (res: Int)
+method fib_recursive(n: Int) returns (res: Int, used_credits : Int)
     requires n >= 0
-    // TODO add time credits and functional specification
+    requires time_credits(fibTime(n))
+    ensures res == fib(n)
+    ensures used_credits == fibTime(n)
 {
+    unfold time_credits(fibTime(n))
     consume_time_credit() // we must spend a credit for every call
+    used_credits := 1
 
     if (n == 0) {
         res := 0
     } elseif (n == 1) {
         res := 1
     } else {
+
+        split_time_credits(fibTime(n-1), fibTime(n-2))
+
         var sub1: Int
-        sub1 := fib_recursive(n - 1)
+        var subc1: Int
+        sub1, subc1 := fib_recursive(n - 1)
 
         var sub2: Int
-        sub2 := fib_recursive(n - 2)
+        var subc2: Int
+        sub2, subc2 := fib_recursive(n - 2)
 
         res := sub1 + sub2
+        used_credits := used_credits + subc1 + subc2
     }
 }
 // -----------------------------------------
+
+method client() {
+    var n : Int
+    assume n >= 0
+
+    inhale time_credits(fibTime(n))
+
+    //var fn: Int := fib_recursive(n)
+
+    // prove that we do not have any time credits
+}
