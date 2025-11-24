@@ -45,6 +45,21 @@ function min(a : Int, b : Int) : Int
 }
 // -----------------------------------------
 
+// Helper functions for min/max element of a BST node
+
+function min_elem(node: Ref): Int
+    requires bst_node(node) && node != null
+{
+    unfolding bst_node(node) in
+        node.left == null ? node.elem : min_elem(node.left)
+}
+
+function max_elem(node: Ref): Int
+    requires bst_node(node) && node != null
+{
+    unfolding bst_node(node) in
+        node.right == null ? node.elem : max_elem(node.right)
+}
 
 // -----------------------------------------
 // TASK 4.1: Define a predicate for binary search trees and individual BST nodes.
@@ -52,13 +67,29 @@ function min(a : Int, b : Int) : Int
 
 // The whole tree has just a reference to the root
 // The empty tree is represented by self.root == null
-predicate bst(self: Ref) // TODO
+predicate bst(self: Ref)
+{
+    acc(self.root) &&
+    (self.root == null
+        ? true
+        : bst_node(self.root))
+}
+
 
 // A single BST node. Apart from field permissions, the current value
 // must be greater than the largest value in the left subtree and
 // smaller than the smallest value in the right subtree.
-predicate bst_node(self: Ref) // TODO
-// -----------------------------------------
+predicate bst_node(self: Ref)
+{
+    self == null
+        ? true
+        : acc(self.elem) && acc(self.left) && acc(self.right) &&
+          bst_node(self.left) && bst_node(self.right) &&
+          (self.left  == null || max_elem(self.left)  < self.elem) &&
+          (self.right == null || self.elem < min_elem(self.right))
+}
+
+
 
 
 // -----------------------------------------
@@ -84,3 +115,41 @@ function to_set(tree: Ref): Set[Int]
     // TODO: define for TASK 4.4
 // -----------------------------------------
 
+
+// test case for 4.1
+method test_empty_tree()
+{
+    var t: Ref := new(root);
+    t.root := null;
+
+    // should be able to fold/unfold an empty tree
+    fold bst(t);
+    unfold bst(t);
+}
+
+method test_singleton_tree()
+{
+    var t: Ref := new(root);
+    var n: Ref := new(elem, left, right);
+
+    n.elem  := 5;
+    n.left  := null;
+    n.right := null;
+
+    // First, build predicates for the (empty) children
+    fold bst_node(n.left);    // bst_node(null)
+    fold bst_node(n.right);   // bst_node(null)
+
+    // Now we can build the predicate for the node itself
+    fold bst_node(n);
+
+    // Wrap it in a tree
+    t.root := n;
+    fold bst(t);
+
+    // Unfold again just to check everything is consistent
+    unfold bst(t);
+    unfold bst_node(n);
+    unfold bst_node(n.left);
+    unfold bst_node(n.right);
+}
