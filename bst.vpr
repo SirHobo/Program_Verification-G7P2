@@ -123,6 +123,8 @@ method bst_node_insert(node: Ref, val: Int,
     requires (!hasMin || val > minn) && (!hasMax || val < maxx)
     requires acc(time_credit(), height_node(node, hasMin, hasMax, minn, maxx)/1)
     ensures  bst_node(node, hasMin, hasMax, minn, maxx)
+    ensures to_set_node(node, hasMin, hasMax, minn, maxx) ==
+            old(to_set_node(node, hasMin, hasMax, minn, maxx)) union Set(val)
 {
 
     consume_time_credit();
