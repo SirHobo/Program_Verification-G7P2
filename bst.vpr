@@ -95,7 +95,7 @@ predicate bst_node(self: Ref, hasMin: Bool, hasMax: Bool, minn: Int, maxx: Int) 
 
 method bst_insert(tree: Ref, val: Int)
     requires bst(tree)
-    requires acc(time_credit(),(height(tree)+3)/1)
+    requires acc(time_credit(),(height(tree)+1)/1)
     ensures  bst(tree)
 {
 
@@ -121,8 +121,12 @@ method bst_node_insert(node: Ref, val: Int,
                        hasMin: Bool, hasMax: Bool, minn: Int, maxx: Int)
     requires bst_node(node, hasMin, hasMax, minn, maxx)
     requires (!hasMin || val > minn) && (!hasMax || val < maxx)
+    requires acc(time_credit(), height_node(node, hasMin, hasMax, minn, maxx)/1)
     ensures  bst_node(node, hasMin, hasMax, minn, maxx)
 {
+
+    consume_time_credit();
+
     unfold bst_node(node, hasMin, hasMax, minn, maxx);
 
     if (val < node.elem) {
