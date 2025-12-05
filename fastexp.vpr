@@ -4,11 +4,6 @@
 // to *fields*, but this does not apply to *predicates*
 predicate time_credit() // represents one abstract unit of time
 
-predicate time_credits(k: Int)
-{
-  k <= 0 ? true : time_credit() && time_credits(k - 1)
-}
-
 function iters(n: Int) : Int
 requires n >= 0
 ensures result >= 0
@@ -22,31 +17,6 @@ ensures result >= 0
 method consume_time_credit() // 
     requires acc(time_credit(), 1/1)
 // -----------------------------------------
-
-method split_time_credits(a: Int, b: Int)
-  requires a >= 0 && b >= 0
-  requires time_credits(a + b)
-  ensures  time_credits(a) && time_credits(b)
-  decreases a + b
-{
-  if (a == 0) {
-    // time_credits(0) is just 'true', and we already have time_credits(b)
-    // Nothing to do.
-    fold time_credits(0)
-  } else {
-    // a > 0
-    unfold time_credits(a + b)
-    // now we have time_credit() && time_credits(a + b - 1)
-
-    split_time_credits(a - 1, b)
-    // IH: time_credits(a-1) && time_credits(b)
-
-    // Use the fresh time_credit() and time_credits(a-1) to rebuild time_credits(a)
-    fold time_credits(a)
-    // We keep time_credits(b) as part of the frame
-  }
-}
-
 
 // -----------------------------------------
 // Mathematical definition of n^e
@@ -77,10 +47,9 @@ method lemma_pow(b: Int, y: Int)
 method fast_pow(n: Int, e: Int)
     returns (res: Int)
     requires 0 < e
-    requires time_credits(iters(e) + 1)
+    requires acc(time_credit(), (iters(e) + 1)/1)
     ensures res == math_pow(n, e)
 {
-    unfold time_credits(iters(e) + 1)
     consume_time_credit() // we must spend a credit for every call
 
     var b: Int := n
@@ -90,10 +59,9 @@ method fast_pow(n: Int, e: Int)
     while (y > 0)
     invariant y >= 0
     invariant math_pow(b,y) * res == math_pow(n,e)
-    invariant time_credits(iters(y))
+    invariant acc(time_credit(), iters(y)/1)
     decreases y
     {
-        unfold time_credits(iters(y))
         consume_time_credit() // we must spend a credit for every loop iteration
 
         if (y % 2 == 1) {
@@ -106,5 +74,6 @@ method fast_pow(n: Int, e: Int)
         y := y / 2
         b := b * b
     }
+    assert perm(time_credit()) == 0/1 // we should have used up all credits
 }
 // -----------------------------------------
