@@ -95,8 +95,12 @@ predicate bst_node(self: Ref, hasMin: Bool, hasMax: Bool, minn: Int, maxx: Int) 
 
 method bst_insert(tree: Ref, val: Int)
     requires bst(tree)
+    requires acc(time_credit(),(height(tree)+3)/1)
     ensures  bst(tree)
 {
+
+    consume_time_credit();
+
     unfold bst(tree);
     if (tree.root == null) {
         // inserting into empty tree
@@ -162,10 +166,6 @@ method bst_node_insert(node: Ref, val: Int,
         }
 
     } }
-
-    // children have been updated (or unchanged); we still have acc(node.*)
-    // and node.elem still satisfies (hasMin ==> node.elem > minn),
-    // (hasMax ==> node.elem < maxx), so we can fold the node again.
     fold bst_node(node, hasMin, hasMax, minn, maxx);
 }
 
@@ -177,15 +177,65 @@ method bst_node_insert(node: Ref, val: Int,
 
 // -----------------------------------------
 // Auxiliary definition of the height of a tree
-function height(tree: Ref) : Int
+function height(tree: Ref): Int
     requires bst(tree)
-    // TODO: define for TASK 4.3
+    ensures result >= 0
+{
+    unfolding bst(tree) in
+        (tree.root == null ?
+            0
+         :
+            height_node(tree.root, false, false, 0, 0))
+}
+
+
+// Height of a BST subtree rooted at `node`
+function height_node(node: Ref, hasMin: Bool, hasMax: Bool, minn: Int, maxx: Int): Int
+    requires bst_node(node, hasMin, hasMax, minn, maxx)
+    ensures result >= 1
+{
+    unfolding bst_node(node, hasMin, hasMax, minn, maxx) in
+        1 + max(
+            node.left == null  ? 0
+                                : height_node(node.left, hasMin, true, minn, node.elem),
+            node.right == null ? 0
+                                : height_node(node.right, true, hasMax, node.elem, maxx)
+        )
+}
+
 // -----------------------------------------
 
 // -----------------------------------------
 // Auxiliary function mapping every BST
 // to the set of values it stores.
 function to_set(tree: Ref): Set[Int]
-    // TODO: define for TASK 4.4
+    requires bst(tree)
+{
+    unfolding bst(tree) in
+        (tree.root == null ?
+            Set()
+         :
+            to_set_node(tree.root, false, false, 0, 0))
+}
+
+
+// Node-level set of values (no null node case)
+function to_set_node(node: Ref, hasMin: Bool, hasMax: Bool, minn: Int, maxx: Int): Set[Int]
+    requires bst_node(node, hasMin, hasMax, minn, maxx)
+{
+    unfolding bst_node(node, hasMin, hasMax, minn, maxx) in
+        (
+            (node.left  == null
+                ? Set()
+                : to_set_node(node.left,  hasMin, true,  minn,       node.elem))
+          union
+            Set(node.elem)
+          union
+            (node.right == null
+                ? Set()
+                : to_set_node(node.right, true,  hasMax, node.elem,  maxx))
+        )
+}
+
 // -----------------------------------------
 
