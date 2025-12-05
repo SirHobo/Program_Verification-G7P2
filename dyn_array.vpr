@@ -332,36 +332,30 @@ method grow(arr: Ref) returns (new_arr: Ref)
 //         and that the method returns an array that correctly appends the value val. 
 method append(arr: Ref, val: Int) returns (new_arr: Ref)
     requires dyn_array(arr)
-    requires acc(time_credit(), 3/1)
+    requires acc(time_credit(), 4/1)
     requires arr_saved_credits(arr) >= arr_length(arr)
     ensures dyn_array(new_arr)
     ensures arr_contents(new_arr) == old(arr_contents(arr)) ++ Seq(val)
 
 {
-    //consume_time_credit() // we must spend a time credit for the call
+    consume_time_credit() // we must spend a time credit for the call
     unfold dyn_array(arr)
     //I need some ghost variable to hold old length to help prove new_arr.capacity > new_arr.length;
-    var oldLen: Int := arr.length;
-    var oldCap: Int := arr.capacity;
     // do we have space left?
     if (arr.length + 1 == arr.capacity) {
-        assert oldLen + 1 == oldCap;
-
         fold dyn_array(arr)
         // no, we need to grow the array first
         new_arr := grow(arr)
-        assert arr_length(new_arr) == arr_length(arr);
-        assert arr_capacity(new_arr) == 2 * arr_capacity(arr);
-
         unfold dyn_array(new_arr)
-        assert new_arr.length == oldLen;
-    
+        unfold dyn_array(arr)
+        
         // append element
         update(new_arr.array, new_arr.length, val)
         new_arr.length := new_arr.length + 1
 
         assert new_arr.capacity > new_arr.length;
         fold dyn_array(new_arr)
+        fold dyn_array(arr)
     } else {
         fold dyn_array(arr)
         // yes, we can append without growing the array first
