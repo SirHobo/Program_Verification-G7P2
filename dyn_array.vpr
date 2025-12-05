@@ -187,7 +187,7 @@ method append_nogrow(arr: Ref, val: Int)
 
     ensures dyn_array(arr)
     ensures |arr_contents(arr)| == |old(arr_contents(arr))|+1
-    //ensures arr_contents(arr) == old(arr_contents(arr))++Seq(val)
+    ensures arr_contents(arr) == old(arr_contents(arr))++Seq(val)
 
 {
     //consume_time_credit() 
@@ -235,8 +235,10 @@ method grow(arr: Ref) returns (new_arr: Ref)
     ensures dyn_array(arr) && dyn_array(new_arr)
     ensures 2*arr_capacity(arr) == arr_capacity(new_arr)
     ensures |arr_contents(new_arr)| == |arr_contents(arr)|
+    //ensures that give additional context for other methods to work properly
     ensures arr_contents(new_arr) == arr_contents(arr)
     ensures arr_capacity(new_arr) > arr_length(new_arr) + 1
+    ensures arr_contents(arr) == old(arr_contents(arr))
     
 {
     //consume_time_credit() // we must spend a credit for the call
@@ -256,12 +258,14 @@ method grow(arr: Ref) returns (new_arr: Ref)
     // to make sure all relevant properties are preserved
     var pos: Int := 0
     while (pos < arr_length(new_arr))
+        //invariants necessary for the loop
         invariant dyn_array(new_arr) && dyn_array(arr)
         invariant 0 <= pos <= arr_length(new_arr)
         invariant arr_length(new_arr) == arr_length(arr)
         invariant arr_contents(arr) == old(arr_contents(arr))
         invariant forall i: Int :: 0 <= i < pos ==>
             arr_contents(arr)[i] == arr_contents(new_arr)[i]
+        //invariants necessary for the ensures at the end
         invariant arr_capacity(new_arr) == 2 * arr_capacity(arr)
         invariant arr_capacity(new_arr) > arr_length(new_arr) + 1
     {
@@ -297,7 +301,7 @@ method append(arr: Ref, val: Int) returns (new_arr: Ref)
     //requires acc(time_credit(),3/1)
     requires dyn_array(arr)
     ensures dyn_array(new_arr)
-    //ensures arr_contents(new_arr) == arr_contents(arr) ++ Seq(val)
+    ensures arr_contents(new_arr) == old(arr_contents(arr)) ++ Seq(val)
 
 {
     //consume_time_credit() // we must spend a time credit for the call
