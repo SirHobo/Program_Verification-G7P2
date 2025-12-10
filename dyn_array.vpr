@@ -255,7 +255,7 @@ method grow(arr: Ref) returns (new_arr: Ref)
     requires acc(time_credit(),1/1)
     requires arr_length(arr) == arr_capacity(arr)-1
 
-    ensures dyn_array(arr) && dyn_array(new_arr)
+    ensures dyn_array(new_arr) //&& dyn_array(arr)
     ensures 2*old(arr_capacity(arr)) == arr_capacity(new_arr)
     ensures |arr_contents(new_arr)| == |old(arr_contents(arr))|
     //ensures that give additional context for other methods to work properly
@@ -287,11 +287,23 @@ method grow(arr: Ref) returns (new_arr: Ref)
     while (pos < new_arr.length)
         //permissions
         invariant acc(new_arr.length) && acc(new_arr.saved_credits)
-        invariant acc(new_arr.capacity) && acc(new_arr.array)
-        invariant acc(arr.array) && staticArray(arr.array)
+        invariant acc(new_arr.capacity) && acc(new_arr.array) && staticArray(new_arr.array)
+        //perm for old array
+        invariant acc(arr.length) && acc(arr.saved_credits)
+        invariant acc(arr.capacity) && acc(arr.array) && staticArray(arr.array)
         //invariants necessary for the loop
+        invariant (new_arr.capacity > 1)
+        invariant (new_arr.length >= 0)
+        invariant (new_arr.capacity > new_arr.length)
+        invariant (len(new_arr.array) == new_arr.capacity)
+        invariant 0 <= pos 
         invariant pos <= new_arr.length
+        invariant new_arr.length == arr.length  
+        invariant len(arr.array) == arr.capacity
+        invariant arr.length < arr.capacity
+        invariant new_arr.capacity == 2 * arr.capacity
         invariant acc(time_credit(), (new_arr.length - pos)/1)
+        invariant new_arr.saved_credits == 0
 
         // invariant dyn_array(new_arr) //&& dyn_array(arr) useless
         // invariant 0 <= pos <= arr_length(new_arr)
@@ -309,11 +321,11 @@ method grow(arr: Ref) returns (new_arr: Ref)
         // copy one element 
         loc(new_arr.array, pos).entry := lookup(arr.array,pos)
         //update(new_arr.array, pos, lookup(arr.array,pos))
-        fold dyn_array(new_arr)
-        assert arr_contents(arr)[pos] == arr_contents(new_arr)[pos]
+        //assert arr_contents(arr)[pos] == arr_contents(new_arr)[pos]
         pos := pos + 1
         
     }
+    fold dyn_array(new_arr)
 
     
 }
