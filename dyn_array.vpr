@@ -28,7 +28,6 @@ field entry: Int // the value of the array element
 //fieldfor stored time credits
 field saved_credits: Int
 //if you have credits then you can have acc to time_credits (mianly for grow())
-field has_acc: Bool
 // -----------------------------------------
 
 
@@ -83,7 +82,7 @@ define alloc(a, l) {
 //         Feel free to add acessor functions to simplify fold-unfold reasoning.
 predicate dyn_array(self: Ref) {
     //permissions
-    acc(self.saved_credits) && acc(self.has_acc) &&
+    acc(self.saved_credits) &&
     acc(self.length) && acc(self.capacity) && acc(self.array) &&
     staticArray(self.array) && //quantified permission
     //representation invariants (restrictions)
@@ -93,7 +92,8 @@ predicate dyn_array(self: Ref) {
     (len(self.array) == self.capacity)&&
     //time credits invariant
     self.saved_credits >= 0 &&
-    (self.saved_credits + (self.capacity - self.length - 1)*2) >= self.capacity - 1 //need -1 for both there bc we never fill last index
+    (self.saved_credits + (self.capacity - self.length - 1)*2) >= self.capacity - 1 &&//need -1 for both there bc we never fill last index
+    acc(time_credit(),self.saved_credits/1)
     //also we need >= because theres always an excess # of credits in the inital adding
     //but the relationship should be ==
 
@@ -151,14 +151,13 @@ method cons(_capacity: Int) returns (arr: Ref)
 {
     consume_time_credit() // every method call must consume a time credit
 
-    arr := new (length,capacity,array,saved_credits,has_acc)
+    arr := new (length,capacity,array,saved_credits)
     arr.capacity := _capacity
     arr.length := 0
     var a: StaticArray
     arr.array := a
     alloc(arr.array,_capacity)
     arr.saved_credits := 0
-    arr.has_acc:= false
     fold dyn_array(arr)
 
     
@@ -218,7 +217,6 @@ method append_nogrow(arr: Ref, val: Int)
 
     update(arr.array, arr.length, val) // append value
     arr.length := arr.length + 1 // we appended an element
-    arr.has_acc := true
     fold dyn_array(arr)
 }
 // -----------------------------------------
@@ -269,38 +267,37 @@ method grow(arr: Ref) returns (new_arr: Ref)
 
     // create a new dynamic array with twice the capacity
     unfold dyn_array(arr)
-    new_arr := new(length, capacity, array, saved_credits,has_acc)
+    new_arr := new(length, capacity, array, saved_credits)
     new_arr.capacity := 2 * arr.capacity
     new_arr.length := arr.length
     alloc(new_arr.array, new_arr.capacity)
     var c: Int := arr.saved_credits
-    var h: Bool := arr.has_acc
-    new_arr.saved_credits := c
-    new_arr.has_acc := h
-    arr.saved_credits:= 0
-    arr.has_acc := false
+    new_arr.saved_credits := 0
 
-    fold dyn_array(new_arr)
     //fold dyn_array(arr) //useless
     // copy array elements iteratively; in each iteration, we use ghost credits to pay for the iteration
     // since we modify both the new array and ghost fields of the old array, we need a lot of invariants
     // to make sure all relevant properties are preserved
     var pos: Int := 0
-    while (pos < arr_length(new_arr))
+    while (pos < new_arr.length)
         //invariants necessary for the loop
-        invariant dyn_array(new_arr) //&& dyn_array(arr) useless
-        invariant 0 <= pos <= arr_length(new_arr)
-        invariant arr_length(new_arr) == old(arr_length(arr))
-        //invariant arr_contents(arr) == old(arr_contents(arr)) useless
-        invariant forall i: Int :: 0 <= i < pos ==>
-            old(arr_contents(arr))[i] == arr_contents(new_arr)[i]
-        //invariants necessary for the ensures at the end
-        invariant arr_capacity(new_arr) == 2 * old(arr_capacity(arr))
-        //i need to keep save credits non -ve in the loop
-        invariant unfolding dyn_array(new_arr) in
-            new_arr.saved_credits >= new_arr.length - pos
+        invariant acc(new_arr.length) && acc(new_arr.saved_credits)
+        invariant acc(new_arr.capacity) && acc(new_arr.array)
+        invariant acc(time_credit(),)
+
+
+        // invariant dyn_array(new_arr) //&& dyn_array(arr) useless
+        // invariant 0 <= pos <= arr_length(new_arr)
+        // invariant arr_length(new_arr) == old(arr_length(arr))
+        // //invariant arr_contents(arr) == old(arr_contents(arr)) useless
+        // invariant forall i: Int :: 0 <= i < pos ==>
+        //     old(arr_contents(arr))[i] == arr_contents(new_arr)[i]
+        // //invariants necessary for the ensures at the end
+        // invariant arr_capacity(new_arr) == 2 * old(arr_capacity(arr))
+        // //i need to keep save credits non -ve in the loop
+        // invariant unfolding dyn_array(new_arr) in
+        //     new_arr.saved_credits >= new_arr.length - pos
     {
-        unfold dyn_array(new_arr)
         consume_time_credit() // we must spend a credit for every iteration
         // copy one element 
         update(new_arr.array, pos, lookup(arr.array,pos))
