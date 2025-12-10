@@ -87,17 +87,22 @@ predicate dyn_array(self: Ref) {
     acc(self.length) && acc(self.capacity) && acc(self.array) &&
     staticArray(self.array) && //quantified permission
     //representation invariants (restrictions)
-    (self.capacity > 0) &&
+    (self.capacity > 1) &&
     (self.length >= 0) &&
     (self.capacity > self.length)&&
     (len(self.array) == self.capacity)&&
-    //invariant for credits
-    self.saved_credits >= 0 && 
-    (self.has_acc  
-        ?acc(time_credit(), self.saved_credits / 1) //&&  self.saved_credits >= self.length
-        :self.saved_credits == 0
-    )
+    //time credits invariant
+    self.saved_credits >= 0 &&
+    (self.saved_credits + (self.capacity - self.length - 1)*2) >= self.capacity - 1 //need -1 for both there bc we never fill last index
+    //also we need >= because theres always an excess # of credits in the inital adding
+    //but the relationship should be ==
 
+    //old invariant
+    // self.saved_credits >= 0 && 
+    // (self.has_acc  
+    //     ?acc(time_credit(), self.saved_credits / 1) //&&  self.saved_credits >= self.length
+    //     :self.saved_credits == 0
+    // )
 
 }
     
@@ -138,7 +143,7 @@ function arr_length(base: Ref): Int
 method cons(_capacity: Int) returns (arr: Ref)
     //requires
     requires acc(time_credit(),1/1)
-    requires 0 < _capacity
+    requires 1 < _capacity
 
     //ensures
     ensures dyn_array(arr)
@@ -181,7 +186,7 @@ function can_append(base: Ref): Bool
     requires dyn_array(base)
 {
     unfolding dyn_array(base) in 
-    base.length + 1 < base.capacity
+    base.length + 1 < base.capacity-1
 }
 
 
@@ -195,24 +200,21 @@ function can_append(base: Ref): Bool
 //         grow the array later if necessary.
 //         You can add specifications and ghost code, but do not modify the production code
 method append_nogrow(arr: Ref, val: Int)
-    requires acc(time_credit(),3/1)
+    requires acc(time_credit(),4/1)
     requires dyn_array(arr)
     requires can_append(arr)
 
     ensures dyn_array(arr)
     ensures |arr_contents(arr)| == |old(arr_contents(arr))|+1
     ensures arr_contents(arr) == old(arr_contents(arr))++Seq(val)
+    //ensures (arr_saved_credits(arr) == old(arr_saved_credits(arr)) + 2)||(arr_saved_credits(arr) == old(arr_saved_credits(arr)) + 3)
 
 {
     consume_time_credit() 
 
     unfold dyn_array(arr)
-    // give each spot two credits for copying itself and one extra index in grow()
-    if (arr.saved_credits == 0){
-        arr.saved_credits := arr.saved_credits+1 
-    }else{
-        arr.saved_credits := arr.saved_credits+2 
-    }
+    arr.saved_credits := arr.saved_credits+2 
+    
 
     update(arr.array, arr.length, val) // append value
     arr.length := arr.length + 1 // we appended an element
@@ -253,15 +255,13 @@ method grow(arr: Ref) returns (new_arr: Ref)
     requires !can_append(arr)
     //time requirements
     requires acc(time_credit(),1/1)
-    requires arr_saved_credits(arr) >= arr_length(arr)
 
     ensures dyn_array(arr) && dyn_array(new_arr)
-    ensures 2*arr_capacity(arr) == arr_capacity(new_arr)
-    ensures |arr_contents(new_arr)| == |arr_contents(arr)|
+    ensures 2*old(arr_capacity(arr)) == arr_capacity(new_arr)
+    ensures |arr_contents(new_arr)| == |old(arr_contents(arr))|
     //ensures that give additional context for other methods to work properly
-    ensures arr_contents(new_arr) == arr_contents(arr)
-    ensures arr_contents(arr) == old(arr_contents(arr))
-    ensures arr_length(new_arr) == arr_length(arr)
+    ensures arr_contents(new_arr) == old(arr_contents(arr))
+    ensures arr_length(new_arr) == old(arr_length(arr))
     
     
 {
@@ -280,38 +280,31 @@ method grow(arr: Ref) returns (new_arr: Ref)
     arr.saved_credits:= 0
     arr.has_acc := false
 
-    assert new_arr.saved_credits >= new_arr.length
-    
     fold dyn_array(new_arr)
-    fold dyn_array(arr)
+    //fold dyn_array(arr) //useless
     // copy array elements iteratively; in each iteration, we use ghost credits to pay for the iteration
     // since we modify both the new array and ghost fields of the old array, we need a lot of invariants
     // to make sure all relevant properties are preserved
     var pos: Int := 0
     while (pos < arr_length(new_arr))
         //invariants necessary for the loop
-        invariant dyn_array(new_arr) && dyn_array(arr)
+        invariant dyn_array(new_arr) //&& dyn_array(arr) useless
         invariant 0 <= pos <= arr_length(new_arr)
-        invariant arr_length(new_arr) == arr_length(arr)
-        invariant arr_contents(arr) == old(arr_contents(arr))
+        invariant arr_length(new_arr) == old(arr_length(arr))
+        //invariant arr_contents(arr) == old(arr_contents(arr)) useless
         invariant forall i: Int :: 0 <= i < pos ==>
-            arr_contents(arr)[i] == arr_contents(new_arr)[i]
+            old(arr_contents(arr))[i] == arr_contents(new_arr)[i]
         //invariants necessary for the ensures at the end
-        invariant arr_capacity(new_arr) == 2 * arr_capacity(arr)
+        invariant arr_capacity(new_arr) == 2 * old(arr_capacity(arr))
         //i need to keep save credits non -ve in the loop
         invariant unfolding dyn_array(new_arr) in
             new_arr.saved_credits >= new_arr.length - pos
     {
-        //consume_time_credit() // we must spend a credit for every iteration
-
-        // copy one element 
         unfold dyn_array(new_arr)
-        unfold dyn_array(arr)
+        consume_time_credit() // we must spend a credit for every iteration
+        // copy one element 
         update(new_arr.array, pos, lookup(arr.array,pos))
-        new_arr.saved_credits:= new_arr.saved_credits-1
-        fold dyn_array(arr)
         fold dyn_array(new_arr)
-
         assert arr_contents(arr)[pos] == arr_contents(new_arr)[pos]
         pos := pos + 1
         
@@ -332,7 +325,7 @@ method grow(arr: Ref) returns (new_arr: Ref)
 //         and that the method returns an array that correctly appends the value val. 
 method append(arr: Ref, val: Int) returns (new_arr: Ref)
     requires dyn_array(arr)
-    requires acc(time_credit(), 4/1)
+    requires acc(time_credit(), 5/1)
     requires arr_saved_credits(arr) >= arr_length(arr)
     ensures dyn_array(new_arr)
     ensures arr_contents(new_arr) == old(arr_contents(arr)) ++ Seq(val)
@@ -345,6 +338,7 @@ method append(arr: Ref, val: Int) returns (new_arr: Ref)
     if (arr.length + 1 == arr.capacity) {
         fold dyn_array(arr)
         // no, we need to grow the array first
+        assert arr_saved_credits(arr) >= arr_length(arr)
         new_arr := grow(arr)
         unfold dyn_array(new_arr)
         unfold dyn_array(arr)
@@ -352,6 +346,8 @@ method append(arr: Ref, val: Int) returns (new_arr: Ref)
         // append element
         update(new_arr.array, new_arr.length, val)
         new_arr.length := new_arr.length + 1
+
+        new_arr.saved_credits := new_arr.saved_credits + 1
 
         assert new_arr.capacity > new_arr.length;
         fold dyn_array(new_arr)
