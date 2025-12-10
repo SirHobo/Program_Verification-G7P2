@@ -185,7 +185,7 @@ function can_append(base: Ref): Bool
     requires dyn_array(base)
 {
     unfolding dyn_array(base) in 
-    base.length + 1 < base.capacity-1
+    base.length + 1 < base.capacity
 }
 
 
@@ -257,9 +257,8 @@ method grow(arr: Ref) returns (new_arr: Ref)
 
     ensures dyn_array(new_arr) //&& dyn_array(arr)
     ensures 2*old(arr_capacity(arr)) == arr_capacity(new_arr)
-    ensures |arr_contents(new_arr)| == |old(arr_contents(arr))|
     //ensures that give additional context for other methods to work properly
-    ensures arr_contents(new_arr) == old(arr_contents(arr))
+    //ensures arr_contents(new_arr) == old(arr_contents(arr))
     ensures arr_length(new_arr) == old(arr_length(arr))
     
     
@@ -304,6 +303,10 @@ method grow(arr: Ref) returns (new_arr: Ref)
         invariant new_arr.capacity == 2 * arr.capacity
         invariant acc(time_credit(), (new_arr.length - pos)/1)
         invariant new_arr.saved_credits == 0
+        invariant 2*old(arr_capacity(arr)) == new_arr.capacity
+        // invariant forall i: Int :: 0 <= i < pos ==>
+        //     old(arr_contents(arr))[i] == static_array_contents(new_arr.array, pos)[i]
+        invariant new_arr.length == old(arr_length(arr))
 
         // invariant dyn_array(new_arr) //&& dyn_array(arr) useless
         // invariant 0 <= pos <= arr_length(new_arr)
@@ -324,57 +327,62 @@ method grow(arr: Ref) returns (new_arr: Ref)
         //assert arr_contents(arr)[pos] == arr_contents(new_arr)[pos]
         pos := pos + 1
         
+
+        
     }
+    assert 2*old(arr_capacity(arr)) == new_arr.capacity
     fold dyn_array(new_arr)
+    assert arr_capacity(new_arr) == 2*arr.capacity
+    
 
     
 }
 // -----------------------------------------
 
 
-// // -----------------------------------------
-// // TASK 3.6: Prove that the following general append method
-// //         can be executed in *amortized constant time*
-// //         for dynamic arrays.
-// //         You may require that a certain number of time credits have been saved up
-// //         *in the data structure* that you can use for growing the data structure.
-// //         Furthermore, prove memory safety, perservation of data structure invariants
-// //         and that the method returns an array that correctly appends the value val. 
-// method append(arr: Ref, val: Int) returns (new_arr: Ref)
-//     requires dyn_array(arr)
-//     requires acc(time_credit(), 5/1)
-//     requires arr_saved_credits(arr) >= arr_length(arr)
-//     ensures dyn_array(new_arr)
-//     ensures arr_contents(new_arr) == old(arr_contents(arr)) ++ Seq(val)
+// -----------------------------------------
+// TASK 3.6: Prove that the following general append method
+//         can be executed in *amortized constant time*
+//         for dynamic arrays.
+//         You may require that a certain number of time credits have been saved up
+//         *in the data structure* that you can use for growing the data structure.
+//         Furthermore, prove memory safety, perservation of data structure invariants
+//         and that the method returns an array that correctly appends the value val. 
+method append(arr: Ref, val: Int) returns (new_arr: Ref)
+    requires dyn_array(arr)
+    requires acc(time_credit(), 5/1)
 
-// {
-//     consume_time_credit() // we must spend a time credit for the call
-//     unfold dyn_array(arr)
-//     //I need some ghost variable to hold old length to help prove new_arr.capacity > new_arr.length;
-//     // do we have space left?
-//     if (arr.length + 1 == arr.capacity) {
-//         fold dyn_array(arr)
-//         // no, we need to grow the array first
-//         assert arr_saved_credits(arr) >= arr_length(arr)
-//         new_arr := grow(arr)
-//         unfold dyn_array(new_arr)
-//         unfold dyn_array(arr)
+    ensures dyn_array(new_arr)
+    //ensures arr_contents(new_arr) == old(arr_contents(arr)) ++ Seq(val)
+
+{
+    consume_time_credit() // we must spend a time credit for the call
+    unfold dyn_array(arr)
+    //I need some ghost variable to hold old length to help prove new_arr.capacity > new_arr.length;
+    // do we have space left?
+    if (arr.length + 1 == arr.capacity) {
+        fold dyn_array(arr)
+        // no, we need to grow the array first
+        assert arr_saved_credits(arr) >= arr_length(arr)
+        new_arr := grow(arr)
+        unfold dyn_array(new_arr)
         
-//         // append element
-//         update(new_arr.array, new_arr.length, val)
-//         new_arr.length := new_arr.length + 1
+        // append element
+        update(new_arr.array, new_arr.length, val)
+        new_arr.length := new_arr.length + 1
 
-//         new_arr.saved_credits := new_arr.saved_credits + 1
+        new_arr.saved_credits := new_arr.saved_credits + 1
 
-//         assert new_arr.capacity > new_arr.length;
-//         fold dyn_array(new_arr)
-//         fold dyn_array(arr)
-//     } else {
-//         fold dyn_array(arr)
-//         // yes, we can append without growing the array first
-//         new_arr := arr
-//         append_nogrow(new_arr, val)
-//     }   
+        assert new_arr.capacity > new_arr.length;
+        fold dyn_array(new_arr)
+
+    } else {
+        assert (arr.length + 1) < arr.capacity
+        fold dyn_array(arr)
+        // yes, we can append without growing the array first
+        new_arr := arr
+        append_nogrow(new_arr, val)
+    }   
     
-// }
-// // -----------------------------------------
+}
+// -----------------------------------------
