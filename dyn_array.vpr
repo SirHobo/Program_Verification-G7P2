@@ -199,14 +199,14 @@ function can_append(base: Ref): Bool
 //         grow the array later if necessary.
 //         You can add specifications and ghost code, but do not modify the production code
 method append_nogrow(arr: Ref, val: Int)
-    requires acc(time_credit(),4/1)
+    requires acc(time_credit(),3/1)
     requires dyn_array(arr)
     requires can_append(arr)
 
     ensures dyn_array(arr)
     ensures |arr_contents(arr)| == |old(arr_contents(arr))|+1
     ensures arr_contents(arr) == old(arr_contents(arr))++Seq(val)
-    //ensures (arr_saved_credits(arr) == old(arr_saved_credits(arr)) + 2)||(arr_saved_credits(arr) == old(arr_saved_credits(arr)) + 3)
+
 
 {
     consume_time_credit() 
@@ -352,7 +352,7 @@ method grow(arr: Ref) returns (new_arr: Ref)
 //         and that the method returns an array that correctly appends the value val. 
 method append(arr: Ref, val: Int) returns (new_arr: Ref)
     requires dyn_array(arr)
-    requires acc(time_credit(), 5/1)
+    requires acc(time_credit(), 4/1)
 
     ensures dyn_array(new_arr)
     ensures arr_contents(new_arr) == old(arr_contents(arr)) ++ Seq(val)
