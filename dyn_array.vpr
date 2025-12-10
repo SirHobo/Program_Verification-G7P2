@@ -258,7 +258,7 @@ method grow(arr: Ref) returns (new_arr: Ref)
     ensures dyn_array(new_arr) //&& dyn_array(arr)
     ensures 2*old(arr_capacity(arr)) == arr_capacity(new_arr)
     //ensures that give additional context for other methods to work properly
-    //ensures arr_contents(new_arr) == old(arr_contents(arr))
+    ensures arr_contents(new_arr) == old(arr_contents(arr))
     ensures arr_length(new_arr) == old(arr_length(arr))
     
     
@@ -283,7 +283,7 @@ method grow(arr: Ref) returns (new_arr: Ref)
     var pos: Int := 0
     assert new_arr.length >= 0
     assert acc(time_credit(), (new_arr.length - pos)/1)
-    while (pos < new_arr.length)
+    while (pos < arr.length)
         //permissions
         invariant acc(new_arr.length) && acc(new_arr.saved_credits)
         invariant acc(new_arr.capacity) && acc(new_arr.array) && staticArray(new_arr.array)
@@ -304,9 +304,11 @@ method grow(arr: Ref) returns (new_arr: Ref)
         invariant acc(time_credit(), (new_arr.length - pos)/1)
         invariant new_arr.saved_credits == 0
         invariant 2*old(arr_capacity(arr)) == new_arr.capacity
+        invariant static_array_contents(arr.array,pos) == static_array_contents(new_arr.array,pos)
         // invariant forall i: Int :: 0 <= i < pos ==>
         //     old(arr_contents(arr))[i] == static_array_contents(new_arr.array, pos)[i]
         invariant new_arr.length == old(arr_length(arr))
+        invariant static_array_contents(arr.array, arr.length)== old(arr_contents(arr))
 
         // invariant dyn_array(new_arr) //&& dyn_array(arr) useless
         // invariant 0 <= pos <= arr_length(new_arr)
@@ -353,7 +355,7 @@ method append(arr: Ref, val: Int) returns (new_arr: Ref)
     requires acc(time_credit(), 5/1)
 
     ensures dyn_array(new_arr)
-    //ensures arr_contents(new_arr) == old(arr_contents(arr)) ++ Seq(val)
+    ensures arr_contents(new_arr) == old(arr_contents(arr)) ++ Seq(val)
 
 {
     consume_time_credit() // we must spend a time credit for the call
