@@ -73,30 +73,13 @@ predicate bst_node(self: Ref, hasMin: Bool, hasMax: Bool, minn: Int, maxx: Int) 
 
 // -----------------------------------------
 // TASK 4.2 - 4.4: implement and verify this method
-// method bst_insert(tree: Ref, val: Int)
-//     requires bst(tree)
-//     ensures bst(tree)
-//     {
-//         unfold bst(tree)
-//         if (tree.root == null) {
-//             // inserting into empty tree
-//             var newNode: Ref := new(elem,left,right)
-//             newNode.elem := val
-//             newNode.left := null
-//             newNode.right := null
-//             fold bst_node(newNode)
-//             tree.root := newNode
-//         } else {
-//             // inserting into non-empty tree
-//             bst_node_insert(tree.root, val)
-//         }
-//         fold bst(tree)
-//     }
 
 method bst_insert(tree: Ref, val: Int)
     requires bst(tree)
     requires acc(time_credit(),(height(tree)+1)/1)
     ensures  bst(tree)
+    //4.4
+    ensures to_set(tree) == old(to_set(tree)) union Set(val)
 {
 
     consume_time_credit();
