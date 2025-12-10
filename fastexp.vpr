@@ -47,7 +47,7 @@ method lemma_pow(b: Int, y: Int)
 method fast_pow(n: Int, e: Int)
     returns (res: Int)
     requires 0 < e
-    requires acc(time_credit(), (iters(e) + 1)/1)
+    requires acc(time_credit(), (iters(e) + 1)/1) //1 for entry
     ensures res == math_pow(n, e)
 {
     consume_time_credit() // we must spend a credit for every call
